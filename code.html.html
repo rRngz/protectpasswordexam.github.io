@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Password Protected Redirect with Admin</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+  body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    background: #1e1e2f;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #container {
+    background: #2a2a40;
+    padding: 2rem;
+    border-radius: 12px;
+    width: 360px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+  }
+  h1, h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: #65aaff;
+  }
+  input[type="password"] {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+  button {
+    width: 100%;
+    background: #65aaff;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin-top: 0.5rem;
+  }
+  button:hover {
+    background: #4b8edf;
+  }
+  .hidden {
+    display: none;
+  }
+  .message {
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #ff5757;
+  }
+  #admin-actions button {
+    width: 48%;
+    display: inline-block;
+    margin: 0.25rem 1% 1rem 1%;
+  }
+  #logout-btn {
+    background: #ff5757;
+  }
+  #logout-btn:hover {
+    background: #cc4545;
+  }
+</style>
+</head>
+<body>
+  <div id="container">
+    <!-- Initial password setup screen -->
+    <div id="init-password-screen" class="hidden">
+      <h1>Set Your Password</h1>
+      <p>Set a password to protect access:</p>
+      <input type="password" id="init-password" placeholder="Enter password" autocomplete="new-password" />
+      <input type="password" id="init-password-confirm" placeholder="Confirm password" autocomplete="new-password" />
+      <div id="init-password-message" class="message"></div>
+      <button id="init-password-btn">Set Password</button>
+    </div>
+
+    <!-- Login screen -->
+    <div id="login-screen" class="hidden">
+      <h1>Login</h1>
+      <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password" />
+      <div id="login-message" class="message"></div>
+      <button id="login-btn">Login</button>
+    </div>
+
+    <!-- Admin screen -->
+    <div id="admin-screen" class="hidden">
+      <h1>Welcome Admin</h1>
+      <div id="admin-actions">
+        <button id="go-to-site-btn" title="Go to external site">Go to Site</button>
+        <button id="toggle-change-pwd-btn" title="Show/Hide Change Password">Change Password</button>
+      </div>
+
+      <div id="change-password-form" class="hidden">
+        <h2>Change Password</h2>
+        <input type="password" id="current-password" placeholder="Current password" autocomplete="current-password" />
+        <input type="password" id="new-password" placeholder="New password" autocomplete="new-password" />
+        <input type="password" id="new-password-confirm" placeholder="Confirm new password" autocomplete="new-password" />
+        <div id="change-password-message" class="message"></div>
+        <button id="change-password-btn">Change Password</button>
+      </div>
+
+      <button id="logout-btn" title="Logout">Logout</button>
+    </div>
+  </div>
+
+<script>
+  (function () {
+    // Constants
+    const PASSWORD_KEY = 'website_password';
+    const REDIRECT_URL = 'https://sites.google.com/smada-ppu.sch.id/ubo-v2/home?authuser=2';
+
+    // Elements
+    const initScreen = document.getElementById('init-password-screen');
+    const loginScreen = document.getElementById('login-screen');
+    const adminScreen = document.getElementById('admin-screen');
+
+    const initPwdInput = document.getElementById('init-password');
+    const initPwdConfirmInput = document.getElementById('init-password-confirm');
+    const initPwdBtn = document.getElementById('init-password-btn');
+    const initPwdMsg = document.getElementById('init-password-message');
+
+    const loginPwdInput = document.getElementById('login-password');
+    const loginBtn = document.getElementById('login-btn');
+    const loginMsg = document.getElementById('login-message');
+
+    const goToSiteBtn = document.getElementById('go-to-site-btn');
+    const toggleChangePwdBtn = document.getElementById('toggle-change-pwd-btn');
+
+    const changePwdForm = document.getElementById('change-password-form');
+    const currentPwdInput = document.getElementById('current-password');
+    const newPwdInput = document.getElementById('new-password');
+    const newPwdConfirmInput = document.getElementById('new-password-confirm');
+    const changePwdBtn = document.getElementById('change-password-btn');
+    const changePwdMsg = document.getElementById('change-password-message');
+
+    const logoutBtn = document.getElementById('logout-btn');
+
+    let loggedIn = false;
+
+    // Utility functions
+    function getStoredPassword() {
+      return localStorage.getItem(PASSWORD_KEY);
+    }
+
+    function setStoredPassword(pwd) {
+      localStorage.setItem(PASSWORD_KEY, pwd);
+    }
+
+    function clearMessages() {
+      initPwdMsg.textContent = '';
+      loginMsg.textContent = '';
+      changePwdMsg.textContent = '';
+    }
+
+    function show(elem) {
+      elem.classList.remove('hidden');
+    }
+    function hide(elem) {
+      elem.classList.add('hidden');
+    }
+
+    // Screen display funcs
+    function showInitScreen() {
+      hide(loginScreen);
+      hide(adminScreen);
+      show(initScreen);
+      clearMessages();
+      initPwdInput.value = '';
+      initPwdConfirmInput.value = '';
+      initPwdInput.focus();
+    }
+
+    function showLoginScreen() {
+      hide(initScreen);
+      hide(adminScreen);
+      show(loginScreen);
+      clearMessages();
+      loginPwdInput.value = '';
+      loginPwdInput.focus();
+    }
+
+    function showAdminScreen() {
+      hide(initScreen);
+      hide(loginScreen);
+      show(adminScreen);
+      clearMessages();
+      changePwdForm.classList.add('hidden');
+      currentPwdInput.value = '';
+      newPwdInput.value = '';
+      newPwdConfirmInput.value = '';
+      loggedIn = true;
+    }
+
+    // Validate password change inputs
+    function validatePasswordChange(current, stored, newPwd, confirmPwd) {
+      if (!current) {
+        return "Please enter your current password.";
+      }
+      if (current !== stored) {
+        return "Current password is incorrect.";
+      }
+      if (!newPwd) {
+        return "Please enter a new password.";
+      }
+      if (newPwd !== confirmPwd) {
+        return "New passwords do not match.";
+      }
+      if (newPwd.length < 4) {
+        return "New password must be at least 4 characters.";
+      }
+      return null;
+    }
+
+    // Initialize page on load
+    function init() {
+      const storedPwd = getStoredPassword();
+      if (!storedPwd) {
+        // No password set - show init screen
+        showInitScreen();
+      } else {
+        // Show login
+        showLoginScreen();
+      }
+    }
+
+    // Event listeners
+    // Set initial password
+    initPwdBtn.addEventListener('click', () => {
+      const pwd = initPwdInput.value.trim();
+      const pwdConfirm = initPwdConfirmInput.value.trim();
+      clearMessages();
+
+      if (pwd.length < 4) {
+        initPwdMsg.textContent = 'Password must be at least 4 characters.';
+        return;
+      }
+      if (pwd !== pwdConfirm) {
+        initPwdMsg.textContent = 'Passwords do not match.';
+        return;
+      }
+
+      setStoredPassword(pwd);
+      showAdminScreen();
+    });
+
+    // Login
+    loginBtn.addEventListener('click', () => {
+      const pwd = loginPwdInput.value.trim();
+      clearMessages();
+      if (pwd === getStoredPassword()) {
+        showAdminScreen();
+      } else {
+        loginMsg.textContent = 'Incorrect password.';
+      }
+    });
+
+    // Toggle change password form
+    toggleChangePwdBtn.addEventListener('click', () => {
+      if (changePwdForm.classList.contains('hidden')) {
+        // Show form
+        show(changePwdForm);
+        clearMessages();
+        currentPwdInput.value = '';
+        newPwdInput.value = '';
+        newPwdConfirmInput.value = '';
+        currentPwdInput.focus();
+      } else {
+        // Hide form and clear messages
+        hide(changePwdForm);
+        clearMessages();
+      }
+    });
+
+    // Change password
+    changePwdBtn.addEventListener('click', () => {
+      clearMessages();
+      if (!loggedIn) {
+        changePwdMsg.textContent = 'You must be logged in to change password.';
+        return;
+      }
+      const current = currentPwdInput.value.trim();
+      const stored = getStoredPassword();
+      const newPwd = newPwdInput.value.trim();
+      const confirmPwd = newPwdConfirmInput.value.trim();
+
+      const validationMsg = validatePasswordChange(current, stored, newPwd, confirmPwd);
+      if (validationMsg) {
+        changePwdMsg.textContent = validationMsg;
+        return;
+      }
+
+      setStoredPassword(newPwd);
+      changePwdMsg.style.color = '#65ff9d';
+      changePwdMsg.textContent = 'Password changed successfully!';
+      currentPwdInput.value = '';
+      newPwdInput.value = '';
+      newPwdConfirmInput.value = '';
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      loggedIn = false;
+      showLoginScreen();
+    });
+
+    // Go to external site
+    goToSiteBtn.addEventListener('click', () => {
+      window.location.href = REDIRECT_URL;
+    });
+
+    // Keyboard enter support
+    [initPwdInput, initPwdConfirmInput].forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          initPwdBtn.click();
+        }
+      });
+    });
+
+    loginPwdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        loginBtn.click();
+      }
+    });
+
+    [currentPwdInput, newPwdInput, newPwdConfirmInput].forEach(input => {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          changePwdBtn.click();
+        }
+      });
+    });
+
+    init();
+  })();
+</script>
+</body>
+</html>
+
